@@ -7,9 +7,10 @@ import { LoanTab } from "@/components/tabs/LoanTab";
 import { ExitTab } from "@/components/tabs/ExitTab";
 import { MemoTab } from "@/components/tabs/MemoTab";
 import { PropertyListTab } from "@/components/tabs/PropertyListTab";
-import { Home, Calculator, Building, Banknote, TrendingUp, FileText, List } from "lucide-react";
+import { ManualEntryTab } from "@/components/tabs/ManualEntryTab";
+import { Home, Calculator, Building, Banknote, TrendingUp, FileText, List, PenLine } from "lucide-react";
 
-type Tab = "overview" | "sekisan" | "airbnb" | "loan" | "exit" | "memo" | "list";
+type Tab = "overview" | "sekisan" | "airbnb" | "loan" | "exit" | "memo" | "list" | "manual";
 
 const TABS: Array<{ id: Tab; label: string; Icon: React.ElementType }> = [
   { id: "overview", label: "概要", Icon: Home },
@@ -19,6 +20,7 @@ const TABS: Array<{ id: Tab; label: string; Icon: React.ElementType }> = [
   { id: "exit", label: "出口", Icon: TrendingUp },
   { id: "memo", label: "メモ", Icon: FileText },
   { id: "list", label: "一覧", Icon: List },
+  { id: "manual", label: "手動", Icon: PenLine },
 ];
 
 export function SidePanelLayout() {
@@ -32,7 +34,7 @@ export function SidePanelLayout() {
         <div className="w-6 h-6 bg-blue-600 rounded flex items-center justify-center text-white text-xs font-bold">積</div>
         <div>
           <div className="text-xs font-bold text-gray-800">不動産積算ナビ</div>
-          {activeProperty && (
+          {activeProperty && activeTab !== "manual" && activeTab !== "list" && (
             <div className="text-2xs text-gray-400 truncate max-w-[200px]">
               {activeProperty.raw.name ?? activeProperty.raw.address ?? activeProperty.id}
             </div>
@@ -63,10 +65,12 @@ export function SidePanelLayout() {
       <div className="flex-1 overflow-y-auto p-3">
         {activeTab === "list" ? (
           <PropertyListTab />
+        ) : activeTab === "manual" ? (
+          <ManualEntryTab />
         ) : activeProperty ? (
           <PropertyTabContent property={activeProperty} tab={activeTab} />
         ) : (
-          <EmptyState />
+          <EmptyState onManual={() => setActiveTab("manual")} />
         )}
       </div>
     </div>
@@ -85,7 +89,7 @@ function PropertyTabContent({ property, tab }: { property: Property; tab: Tab })
   }
 }
 
-function EmptyState() {
+function EmptyState({ onManual }: { onManual: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center h-full text-center p-6">
       <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
@@ -96,15 +100,20 @@ function EmptyState() {
         不動産サイト（楽待・健美家・SUUMO等）で物件を開いてから、
         ポップアップの「物件を取得」ボタンを押してください
       </p>
+      <button
+        onClick={onManual}
+        className="mb-4 text-xs bg-blue-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-blue-700"
+      >
+        手動で物件を入力する
+      </button>
       <div className="bg-blue-50 rounded-lg p-3 text-left text-xs text-blue-700 w-full">
-        <div className="font-bold mb-1">対応サイト</div>
+        <div className="font-bold mb-1">自動取得対応サイト</div>
         <ul className="space-y-0.5">
           <li>• 楽待（rakumachi.jp）</li>
           <li>• 健美家（kenbiya.com）</li>
           <li>• SUUMO（suumo.jp）</li>
           <li>• アットホーム（athome.co.jp）</li>
           <li>• LIFULL HOME'S（homes.co.jp）</li>
-          <li>• その他（汎用パーサー）</li>
         </ul>
       </div>
     </div>

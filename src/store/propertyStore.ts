@@ -7,11 +7,12 @@ import { STORAGE_KEYS } from "@/constants";
 interface PropertyStore {
   properties: Property[];
   activePropertyId: string | null;
-  activeTab: "overview" | "sekisan" | "airbnb" | "loan" | "exit" | "memo" | "list";
+  activeTab: "overview" | "sekisan" | "airbnb" | "loan" | "exit" | "memo" | "list" | "manual";
 
   addProperty: (raw: RawProperty, sekisanInput?: Partial<SekisanInput>) => Property;
   updateProperty: (id: string, updates: Partial<Property>) => void;
   deleteProperty: (id: string) => void;
+  duplicateProperty: (id: string) => Property | null;
   setActiveProperty: (id: string | null) => void;
   setActiveTab: (tab: PropertyStore["activeTab"]) => void;
   recalculate: (id: string, sekisanInput: SekisanInput) => void;
@@ -25,6 +26,21 @@ function generateId(): string {
   return `prop_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 }
 
+function runCalculations(raw: RawProperty, sekisanInput: SekisanInput) {
+  const sekisan = calcSekisan(sekisanInput);
+  const airbnb = calcAirbnbScore({
+    zoning: raw.zoning,
+    walkMinutes: raw.walkMinutes,
+    address: raw.address,
+    assumedRent: raw.assumedRent,
+    floorPlan: raw.floorPlan,
+  });
+  const loan = calcLoanAssessment({ price: sekisanInput.price, sekisan, assumedRent: raw.assumedRent, builtYear: raw.builtYear });
+  const exit = calcExitStrategy({ price: sekisanInput.price, sekisan, raw, airbnb });
+  const score = calcScoreCard({ price: sekisanInput.price, sekisan, airbnb, loan, exit, raw });
+  return { sekisan, airbnb, loan, exit, score };
+}
+
 export const usePropertyStore = create<PropertyStore>()(
   persist(
     (set, get) => ({
@@ -36,13 +52,15 @@ export const usePropertyStore = create<PropertyStore>()(
         const id = generateId();
         const now = new Date().toISOString();
 
-        let sekisan = undefined;
-        let airbnb = undefined;
-        let loan = undefined;
-        let exit = undefined;
-        let score = undefined;
-
-        if (sekisanInput && raw.price && raw.landArea && raw.buildingArea && raw.structure && raw.builtYear && sekisanInput.linePrice) {
+        let calcs: ReturnType<typeof runCalculations> | undefined;
+        if (
+          sekisanInput?.linePrice &&
+          raw.price &&
+          raw.landArea &&
+          raw.buildingArea &&
+          raw.structure &&
+          raw.builtYear
+        ) {
           const fullInput: SekisanInput = {
             price: raw.price,
             landArea: raw.landArea,
@@ -56,19 +74,10 @@ export const usePropertyStore = create<PropertyStore>()(
             frontRoadWidth: raw.frontRoadWidth,
             canRebuild: raw.canRebuild,
             setback: raw.setback,
+            address: raw.address,
             ...sekisanInput,
           };
-          sekisan = calcSekisan(fullInput);
-          airbnb = calcAirbnbScore({
-            zoning: raw.zoning,
-            walkMinutes: raw.walkMinutes,
-            address: raw.address,
-            assumedRent: raw.assumedRent,
-            floorPlan: raw.floorPlan,
-          });
-          loan = calcLoanAssessment({ price: raw.price, sekisan, assumedRent: raw.assumedRent, builtYear: raw.builtYear });
-          exit = calcExitStrategy({ price: raw.price, sekisan, raw });
-          score = calcScoreCard({ price: raw.price, sekisan, airbnb, loan, exit, raw });
+          calcs = runCalculations(raw, fullInput);
         }
 
         const externalLinks = raw.address ? generateExternalLinks(raw.address) : undefined;
@@ -76,11 +85,11 @@ export const usePropertyStore = create<PropertyStore>()(
         const property: Property = {
           id,
           raw,
-          sekisan,
-          airbnb,
-          loan,
-          exit,
-          score,
+          sekisan: calcs?.sekisan,
+          airbnb: calcs?.airbnb,
+          loan: calcs?.loan,
+          exit: calcs?.exit,
+          score: calcs?.score,
           externalLinks,
           status: "未設定",
           memo: "",
@@ -111,6 +120,34 @@ export const usePropertyStore = create<PropertyStore>()(
         }));
       },
 
+      duplicateProperty: (id) => {
+        const { properties } = get();
+        const src = properties.find((p) => p.id === id);
+        if (!src) return null;
+
+        const newId = generateId();
+        const now = new Date().toISOString();
+        const copy: Property = {
+          ...src,
+          id: newId,
+          status: "未設定",
+          memo: "",
+          createdAt: now,
+          updatedAt: now,
+          raw: {
+            ...src.raw,
+            fetchedAt: now,
+          },
+        };
+
+        set((state) => ({
+          properties: [copy, ...state.properties],
+          activePropertyId: newId,
+        }));
+
+        return copy;
+      },
+
       setActiveProperty: (id) => set({ activePropertyId: id }),
       setActiveTab: (tab) => set({ activeTab: tab }),
 
@@ -119,27 +156,12 @@ export const usePropertyStore = create<PropertyStore>()(
         const prop = properties.find((p) => p.id === id);
         if (!prop) return;
 
-        const sekisan = calcSekisan(sekisanInput);
-        const airbnb = calcAirbnbScore({
-          zoning: prop.raw.zoning,
-          walkMinutes: prop.raw.walkMinutes,
-          address: prop.raw.address,
-          assumedRent: prop.raw.assumedRent,
-          floorPlan: prop.raw.floorPlan,
-        });
-        const loan = calcLoanAssessment({
-          price: sekisanInput.price,
-          sekisan,
-          assumedRent: prop.raw.assumedRent,
-          builtYear: prop.raw.builtYear,
-        });
-        const exit = calcExitStrategy({ price: sekisanInput.price, sekisan, raw: prop.raw });
-        const score = calcScoreCard({ price: sekisanInput.price, sekisan, airbnb, loan, exit, raw: prop.raw });
+        const calcs = runCalculations(prop.raw, sekisanInput);
 
         set((state) => ({
           properties: state.properties.map((p) =>
             p.id === id
-              ? { ...p, sekisan, airbnb, loan, exit, score, updatedAt: new Date().toISOString() }
+              ? { ...p, ...calcs, updatedAt: new Date().toISOString() }
               : p
           ),
         }));

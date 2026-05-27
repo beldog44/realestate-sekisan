@@ -210,5 +210,7 @@ export interface SekisanInput {
   setback?: boolean;
   isLeasehold?: boolean;
   leaseholdRatio?: number;
+  kagechiRatio?: number;
   prefecture?: string;
+  address?: string;
 }
