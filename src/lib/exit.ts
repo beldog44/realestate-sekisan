@@ -1,14 +1,15 @@
-import type { ExitStrategy, SekisanResult, RawProperty } from "@/types";
+import type { ExitStrategy, SekisanResult, RawProperty, AirbnbScore } from "@/types";
 
 interface ExitInput {
   price: number;
   sekisan: SekisanResult;
   raw: Partial<RawProperty>;
+  airbnb?: AirbnbScore;
 }
 
 export function calcExitStrategy(input: ExitInput): ExitStrategy {
   const notes: string[] = [];
-  const { price, sekisan, raw } = input;
+  const { price, sekisan, raw, airbnb } = input;
 
   const landValueRatio = sekisan.landValueRatio;
   const sekisanRatio = sekisan.totalSekisan > 0 ? price / sekisan.totalSekisan : 999;
@@ -26,8 +27,10 @@ export function calcExitStrategy(input: ExitInput): ExitStrategy {
     (sekisanRatio <= 1.0 ? 40 : 20) +
     (raw.grossYield && raw.grossYield >= 0.08 ? 40 : 20);
 
-  // 民泊出口スコア（後でAirbnbスコアと連動）
-  const airbnbExitScore = 30;
+  // 民泊出口スコア（airbnbスコアと連動）
+  const airbnbExitScore = airbnb
+    ? Math.round((airbnb.totalScore / 114) * 100)
+    : 30;
 
   // 更地出口スコア
   const landOnlyExitScore =
@@ -55,6 +58,7 @@ export function calcExitStrategy(input: ExitInput): ExitStrategy {
   const scores = [
     { name: "実需出口", score: endUserExitScore },
     { name: "投資家出口", score: investorExitScore },
+    { name: "民泊出口", score: airbnbExitScore },
     { name: "更地出口", score: landOnlyExitScore },
     { name: "建替え出口", score: redevelopmentScore },
   ];
@@ -65,11 +69,12 @@ export function calcExitStrategy(input: ExitInput): ExitStrategy {
   if (raw.canRebuild === false) notes.push("⚠️ 再建築不可：実需・建替え出口困難");
   if (sekisanRatio <= 0.8) notes.push("✅ 割安取得：投資家出口しやすい");
   if (elapsedYears > 40) notes.push("ℹ️ 築古：更地・建替えが主な出口");
+  if (airbnb && airbnb.totalScore >= 70) notes.push("✅ 民泊適性高：民泊出口も有力");
 
   return {
     endUserExitScore: Math.min(100, Math.max(0, endUserExitScore)),
     investorExitScore: Math.min(100, Math.max(0, investorExitScore)),
-    airbnbExitScore,
+    airbnbExitScore: Math.min(100, Math.max(0, airbnbExitScore)),
     landOnlyExitScore: Math.min(100, Math.max(0, landOnlyExitScore)),
     redevelopmentScore: Math.min(100, Math.max(0, redevelopmentScore)),
     landValueDependency,

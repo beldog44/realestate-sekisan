@@ -26,12 +26,28 @@ export function SekisanTab({ property }: SekisanTabProps) {
     setback: r.setback ?? false,
     isLeasehold: false,
     leaseholdRatio: 0.6,
+    kagechiRatio: 0,
+    address: r.address,
   });
 
   const structures: BuildingStructure[] = ["木造", "軽量鉄骨", "重量鉄骨", "RC", "SRC", "その他"];
 
+  const isValid = !!(
+    input.linePrice &&
+    input.linePrice > 0 &&
+    input.price &&
+    input.price > 0 &&
+    input.landArea &&
+    input.landArea > 0 &&
+    input.buildingArea &&
+    input.buildingArea > 0 &&
+    input.structure &&
+    input.builtYear &&
+    input.builtYear > 1900
+  );
+
   function handleCalc() {
-    if (!input.linePrice || !input.price || !input.landArea || !input.buildingArea || !input.structure || !input.builtYear) return;
+    if (!isValid) return;
     recalculate(property.id, input as SekisanInput);
   }
 
@@ -52,6 +68,7 @@ export function SekisanTab({ property }: SekisanTabProps) {
                 type="number"
                 className="mt-1 w-full border rounded px-2 py-1 text-xs"
                 value={(input.price ?? 0) / 10000}
+                placeholder="例: 3000"
                 onChange={(e) => setInput({ ...input, price: parseFloat(e.target.value) * 10000 })}
               />
             </label>
@@ -90,8 +107,8 @@ export function SekisanTab({ property }: SekisanTabProps) {
                 value={input.structure}
                 onChange={(e) => setInput({ ...input, structure: e.target.value as BuildingStructure })}
               >
-                {structures.map((s) => (
-                  <option key={s} value={s}>{s}（{BUILDING_UNIT_PRICE_RANGES[s].default.toLocaleString()}円/㎡）</option>
+                {structures.map((st) => (
+                  <option key={st} value={st}>{st}（{BUILDING_UNIT_PRICE_RANGES[st].default.toLocaleString()}円/㎡）</option>
                 ))}
               </select>
             </label>
@@ -105,6 +122,18 @@ export function SekisanTab({ property }: SekisanTabProps) {
               />
             </label>
             <label className="block">
+              <span className="text-gray-500">築月</span>
+              <select
+                className="mt-1 w-full border rounded px-2 py-1 text-xs"
+                value={input.builtMonth ?? 1}
+                onChange={(e) => setInput({ ...input, builtMonth: parseInt(e.target.value) })}
+              >
+                {Array.from({ length: 12 }, (_, i) => (
+                  <option key={i + 1} value={i + 1}>{i + 1}月</option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
               <span className="text-gray-500">前面道路幅員（m）</span>
               <input
                 type="number"
@@ -114,8 +143,21 @@ export function SekisanTab({ property }: SekisanTabProps) {
                 onChange={(e) => setInput({ ...input, frontRoadWidth: parseFloat(e.target.value) })}
               />
             </label>
+            <label className="block">
+              <span className="text-gray-500">かげ地割合（不整形地）</span>
+              <input
+                type="number"
+                step="0.05"
+                min="0"
+                max="0.7"
+                className="mt-1 w-full border rounded px-2 py-1 text-xs"
+                value={input.kagechiRatio ?? 0}
+                placeholder="0〜0.7（整形地=0）"
+                onChange={(e) => setInput({ ...input, kagechiRatio: parseFloat(e.target.value) })}
+              />
+            </label>
           </div>
-          <div className="flex gap-4 text-xs">
+          <div className="flex gap-4 text-xs flex-wrap">
             <label className="flex items-center gap-1">
               <input
                 type="checkbox"
@@ -141,13 +183,37 @@ export function SekisanTab({ property }: SekisanTabProps) {
               借地権
             </label>
           </div>
+          {input.isLeasehold && (
+            <label className="block">
+              <span className="text-gray-500">借地権割合（例: 0.6 = 60%）</span>
+              <input
+                type="number"
+                step="0.05"
+                min="0.3"
+                max="0.9"
+                className="mt-1 w-full border border-yellow-300 rounded px-2 py-1 text-xs"
+                value={input.leaseholdRatio ?? 0.6}
+                onChange={(e) => setInput({ ...input, leaseholdRatio: parseFloat(e.target.value) })}
+              />
+            </label>
+          )}
         </div>
         <button
           onClick={handleCalc}
-          className="mt-3 w-full bg-blue-600 text-white text-xs py-2 rounded-lg font-bold hover:bg-blue-700 transition-colors"
+          disabled={!isValid}
+          className={`mt-3 w-full text-xs py-2 rounded-lg font-bold transition-colors ${
+            isValid
+              ? "bg-blue-600 text-white hover:bg-blue-700"
+              : "bg-gray-200 text-gray-400 cursor-not-allowed"
+          }`}
         >
           積算計算する
         </button>
+        {!isValid && (
+          <p className="text-2xs text-red-400 mt-1 text-center">
+            路線価・価格・土地面積・建物面積・構造・築年は必須です
+          </p>
+        )}
       </div>
 
       {/* 計算結果 */}
@@ -181,8 +247,17 @@ export function SekisanTab({ property }: SekisanTabProps) {
                 <tr><td className="py-1 text-gray-500">土地面積</td><td className="text-right font-medium">{s.land.landArea} ㎡</td></tr>
                 <tr><td className="py-1 text-gray-500">奥行補正</td><td className="text-right font-medium">{s.land.depthCorrectionFactor.toFixed(2)}</td></tr>
                 <tr><td className="py-1 text-gray-500">間口補正</td><td className="text-right font-medium">{s.land.frontageNarrownessFactor.toFixed(2)}</td></tr>
+                {s.land.irregularShapeFactor < 1 && (
+                  <tr><td className="py-1 text-orange-600">不整形地補正</td><td className="text-right font-medium text-orange-600">{s.land.irregularShapeFactor.toFixed(2)}</td></tr>
+                )}
+                {s.land.flagPoleFactor < 1 && (
+                  <tr><td className="py-1 text-orange-600">旗竿地補正</td><td className="text-right font-medium text-orange-600">{s.land.flagPoleFactor.toFixed(2)}</td></tr>
+                )}
                 {!r.canRebuild && <tr><td className="py-1 text-red-500">再建築不可補正</td><td className="text-right font-medium text-red-500">{s.land.nonRebuildFactor.toFixed(2)}</td></tr>}
                 {r.setback && <tr><td className="py-1 text-yellow-600">セットバック補正</td><td className="text-right font-medium text-yellow-600">{s.land.setbackFactor.toFixed(2)}</td></tr>}
+                {s.land.liquidityFactor < 1 && (
+                  <tr><td className="py-1 text-blue-600">地域流動性補正</td><td className="text-right font-medium text-blue-600">{s.land.liquidityFactor.toFixed(2)}</td></tr>
+                )}
                 <tr className="border-t-2 border-blue-200"><td className="py-1 font-bold text-blue-700">土地積算価格</td><td className="text-right font-bold text-blue-700">{formatManEn(s.land.totalLandValue)}</td></tr>
               </tbody>
             </table>

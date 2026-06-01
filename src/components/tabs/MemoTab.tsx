@@ -13,7 +13,7 @@ export function MemoTab({ property }: MemoTabProps) {
 
   useEffect(() => {
     setMemo(property.memo);
-  }, [property.memo]);
+  }, [property.id]);
 
   function handleSave() {
     updateMemo(property.id, memo);

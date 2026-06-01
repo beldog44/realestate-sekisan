@@ -20,7 +20,7 @@ export function PopupApp() {
       setParseResult(results.result);
       setStatus("confirm");
     } catch (err) {
-      setErrorMsg(String(err));
+      setErrorMsg(err instanceof Error ? err.message : String(err));
       setStatus("error");
     }
   }

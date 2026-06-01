@@ -11,9 +11,11 @@ import {
   MIN_RESIDUAL_RATIO,
   DEPTH_CORRECTION,
   FRONTAGE_NARROWNESS,
+  IRREGULAR_SHAPE,
   FLAG_POLE_FACTOR,
   NON_REBUILD_FACTOR,
   SETBACK_FACTOR,
+  REGIONAL_LIQUIDITY,
 } from "@/constants";
 
 export function getDepthCorrectionFactor(
@@ -31,6 +33,25 @@ export function getFrontageNarrownessFactor(frontageWidth: number): number {
     .reverse()
     .find((e) => frontageWidth >= e.minFrontage);
   return entry?.factor ?? 0.90;
+}
+
+export function getIrregularShapeFactor(kagechiRatio: number): number {
+  if (kagechiRatio <= 0) return 1.0;
+  const entry = IRREGULAR_SHAPE.find((e) => kagechiRatio <= e.maxKagechi);
+  return entry?.factor ?? 0.85;
+}
+
+export function getRegionalLiquidityFactor(address: string): number {
+  const addressLower = address;
+  for (const [key, factor] of Object.entries(REGIONAL_LIQUIDITY)) {
+    if (addressLower.includes(key)) return factor;
+  }
+  // 政令市キーワードチェック
+  const seirei = ["札幌", "仙台", "さいたま", "千葉", "横浜", "川崎", "相模原", "新潟", "静岡", "浜松", "名古屋", "堺", "神戸", "岡山", "広島", "北九州", "熊本"];
+  if (seirei.some((c) => address.includes(c))) return REGIONAL_LIQUIDITY["その他政令市"];
+  // 都道府県庁所在地チェック（簡易）
+  if (address.match(/県|府/)) return REGIONAL_LIQUIDITY["地方中心市"];
+  return REGIONAL_LIQUIDITY["地方"];
 }
 
 export function getElapsedYears(
@@ -60,6 +81,8 @@ export function calcLandValuation(params: {
   setback?: boolean;
   isLeasehold?: boolean;
   leaseholdRatio?: number;
+  kagechiRatio?: number;
+  address?: string;
 }): LandValuation {
   const {
     linePrice,
@@ -70,17 +93,20 @@ export function calcLandValuation(params: {
     setback = false,
     isLeasehold = false,
     leaseholdRatio = 0.6,
+    kagechiRatio = 0,
+    address = "",
   } = params;
 
   const depthCorrectionFactor = getDepthCorrectionFactor(landArea, frontageWidth);
   const frontageNarrownessFactor = getFrontageNarrownessFactor(frontageWidth);
-  const irregularShapeFactor = 1.0;
+  const irregularShapeFactor = getIrregularShapeFactor(kagechiRatio);
 
   const flagPoleFactor = roadContact === "なし（旗竿）" ? FLAG_POLE_FACTOR : 1.0;
   const roadContactFactor = roadContact === "2面以上" ? 1.03 : 1.0;
   const nonRebuildFactor = canRebuild ? 1.0 : NON_REBUILD_FACTOR;
   const setbackFactor = setback ? SETBACK_FACTOR : 1.0;
   const leaseholdFactor = isLeasehold ? leaseholdRatio : 1.0;
+  const liquidityFactor = address ? getRegionalLiquidityFactor(address) : 1.0;
 
   const totalFactor =
     depthCorrectionFactor *
@@ -92,6 +118,7 @@ export function calcLandValuation(params: {
     setbackFactor *
     leaseholdFactor;
 
+  // 流動性補正は積算価格ではなくスコアリングで反映（積算評価は純粋に保つ）
   const totalLandValue = linePrice * landArea * totalFactor;
 
   return {
@@ -105,7 +132,7 @@ export function calcLandValuation(params: {
     nonRebuildFactor,
     setbackFactor,
     leaseholdRatio: isLeasehold ? leaseholdRatio : 1.0,
-    liquidityFactor: 1.0,
+    liquidityFactor,
     totalLandValue,
   };
 }
@@ -151,6 +178,8 @@ export function calcSekisan(input: SekisanInput): SekisanResult {
     setback: input.setback,
     isLeasehold: input.isLeasehold,
     leaseholdRatio: input.leaseholdRatio,
+    kagechiRatio: input.kagechiRatio,
+    address: input.address,
   });
 
   const building = calcBuildingValuation({

@@ -34,8 +34,7 @@
         "https://www.kenbiya.com/*",
         "https://suumo.jp/*",
         "https://www.athome.co.jp/*",
-        "https://www.homes.co.jp/*",
-        "https://*/*"
+        "https://www.homes.co.jp/*"
       ],
       "js": ["content.js"],
       "run_at": "document_idle"
@@ -50,7 +49,13 @@
   "web_accessible_resources": [
     {
       "resources": ["assets/*", "chunks/*"],
-      "matches": ["<all_urls>"]
+      "matches": [
+        "https://www.rakumachi.jp/*",
+        "https://www.kenbiya.com/*",
+        "https://suumo.jp/*",
+        "https://www.athome.co.jp/*",
+        "https://www.homes.co.jp/*"
+      ]
     }
   ]
 }

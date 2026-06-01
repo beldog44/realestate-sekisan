@@ -25,9 +25,16 @@ export function AirbnbTab({ property }: AirbnbTabProps) {
     );
   }
 
-  // 民泊収入試算
-  const estimatedNightlyRate = 8000;
-  const occupancyRate = 0.65;
+  // 民泊収入試算（スコアに応じて動的計算）
+  const estimatedNightlyRate =
+    ab.legalType === "旅館業" ? 15000 :
+    ab.locationScore >= 20 ? 12000 :
+    ab.touristRouteScore >= 12 ? 10000 : 7000;
+
+  const occupancyRate =
+    ab.legalType === "特区民泊" ? 0.75 :
+    ab.legalType === "旅館業" ? 0.70 : 0.55;
+
   const estimatedMonthlyRevenue = estimatedNightlyRate * 30 * occupancyRate;
   const monthlyRent = r.assumedRent ?? 0;
   const airbnbPremium = monthlyRent > 0 ? estimatedMonthlyRevenue / monthlyRent : 0;
