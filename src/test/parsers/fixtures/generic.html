@@ -1,0 +1,18 @@
+<!--
+  サイト判定に該当しない汎用ページのフィクスチャ。
+  parseGeneric は document.body.innerText のテキストマッチで抽出する。
+  jsdom は innerText 未実装のため、src/test/setup.ts でブロック要素ごとに
+  改行を挿入する innerText ポリフィルを定義している(住所抽出の改行依存に対応)。
+-->
+<!DOCTYPE html>
+<html lang="ja">
+  <head><title>不動産情報</title></head>
+  <body>
+    <h1>収益物件のご紹介</h1>
+    <div>販売価格 5,000万円</div>
+    <div>土地面積 150.5㎡</div>
+    <div>建物面積 120.0㎡</div>
+    <div>所在地</div>
+    <div>東京都港区芝公園4-2-8</div>
+  </body>
+</html>

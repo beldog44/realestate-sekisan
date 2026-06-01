@@ -1,0 +1,30 @@
+<!--
+  楽待(rakumachi.jp)物件詳細ページの構造を模したフィクスチャ。
+  parseRakumachi のセレクタ(h1 / .price / th+td ラベル表)に対応。
+  実ページの構造が変わった場合は、このフィクスチャと parsers.test.ts の
+  期待値を実HTMLに合わせて更新すること。
+-->
+<!DOCTYPE html>
+<html lang="ja">
+  <head><title>楽待 物件詳細</title></head>
+  <body>
+    <h1>経堂サンライズマンション</h1>
+    <div class="price">4,980万円</div>
+    <table class="detail">
+      <tbody>
+        <tr><th>所在地</th><td>東京都世田谷区経堂1-2-3</td></tr>
+        <tr><th>土地面積</th><td>120.5㎡（公簿）</td></tr>
+        <tr><th>建物面積</th><td>200.3㎡</td></tr>
+        <tr><th>構造</th><td>RC造（鉄筋コンクリート）</td></tr>
+        <tr><th>築年月</th><td>1995年3月</td></tr>
+        <tr><th>用途地域</th><td>第一種住居地域</td></tr>
+        <tr><th>建ぺい率</th><td>60%</td></tr>
+        <tr><th>容積率</th><td>200%</td></tr>
+        <tr><th>再建築の可否</th><td>再建築可</td></tr>
+        <tr><th>想定賃料</th><td>35万円</td></tr>
+        <tr><th>表面利回り</th><td>8.4%</td></tr>
+        <tr><th>最寄駅</th><td>小田急線 経堂駅 徒歩8分</td></tr>
+      </tbody>
+    </table>
+  </body>
+</html>

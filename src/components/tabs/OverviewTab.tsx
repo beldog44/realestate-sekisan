@@ -1,7 +1,6 @@
 import type { Property } from "@/types";
 import { ScoreBar } from "@/components/ui/ScoreBar";
 import { GradeChip } from "@/components/ui/GradeChip";
-import { StatusBadge } from "@/components/ui/Badge";
 import { usePropertyStore } from "@/store";
 import { formatManEn, formatRatio } from "@/lib";
 import { MapPin, Train, Calendar, Building2, ExternalLink } from "lucide-react";
